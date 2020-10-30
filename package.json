@@ -1,0 +1,23 @@
+{
+  "name": "aran",
+  "description": "Investigate whether an ESTree refers to a valid ECMAScript program",
+  "version": "0.0.0",
+  "author": {
+    "name": "Laurent Christophe",
+    "email": "lachrist@vub.ac.be"
+  },
+  "main": "lib/index.js",
+  "repository": "lachrist/estree-validate",
+  "homepage": "http://github.com/lachrist/estree-validate",
+  "license": "MIT",
+  "keywords": [
+    "JavaScript",
+    "ECMAScript",
+    "ESTree",
+    "SyntaxError"
+  ],
+  "dependencies": {
+    "acorn-loose": "^8.0.1",
+    "escodegen": "^2.0.0"
+  }
+}
