@@ -3,6 +3,14 @@
 // } ());
 //
 // console.log('fuo');
-export function () { console.log("yo") };
+console.log("wesh");
+export {};
+function x (x) {};
 
-f();
+// function foo () { console.log("yo") };
+// {
+//   function f () { console.log(import.meta) };
+//   f();
+// }
+// f();
+//
