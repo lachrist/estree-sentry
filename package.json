@@ -19,6 +19,7 @@
   "dependencies": {
     "acorn-loose": "^8.0.1",
     "array-lite": "^0.1.8",
+    "chalk": "^4.1.0",
     "escodegen": "^2.0.0"
   }
 }
