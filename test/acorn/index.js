@@ -1,35 +1,40 @@
 const Acorn = require("acorn");
 const EstreeSentry = require("../../lib/index.js");
 const Chalk = require("chalk");
-const acorn = {
+let counter = 0;
+module.exports = {
   __proto__: Acorn,
   parse: (code, options) => {
+    process.stdout.write("1");
+    process.stdout.write(Chalk.blue(counter++) + " " + global.JSON.stringify(options) + "...");
+    process.stdout.write("2");
     if (options.preserveParens) {
-      console.log("Skipping test because options.preserveParens");
+      process.stdout.write(Chalk.blue(" Skipping (because options.preserveParens)\n"));
       return Acorn.parse(code, options);
     }
+    process.stdout.write("3");
     const ast = Acorn.parse(code, options);
     try {
+      process.stdout.write("4");
       const errors = EstreeSentry[options.sourceType ===  "module" ? "module" : "script"](ast);
+      process.stdout.write("5");
       if (errors.length === 0) {
-        console.log(Chalk.green("Pased"));
+        process.stdout.write(Chalk.green(" Passed\n"));
       } else {
-        console.log(Chalk.yellow("SyntaxError"));
-        console.log(options);
-        console.log(code);
-        console.log(JSON.stringify(errors, null, 2));
+        process.stdout.write(Chalk.yellow(" SyntaxError\n"));
+        process.stdout.write(code + "\n");
+        for (let index = 0; index < errors.length; index++) {
+          process.stdout.write(errors[index].message + "\n");
+        }
       }
-
     } catch (error) {
       if (error.name !== "SentryError") {
         throw error;
       }
-      console.log(Chalk.red("SentryError"));
-      console.log(options);
-      console.log(code);
-      console.log(error);
+      process.stdout.write(Chalk.red(" SentryError\n"));
+      process.stdout.write(code + "\n");
+      process.stdout.write(error.message + "\n");
     }
     return ast;
   }
 };
-module.exports = acorn;
