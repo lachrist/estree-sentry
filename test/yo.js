@@ -2,6 +2,7 @@
 
 const Fs = require("fs");
 const Acorn = require("acorn");
+const AcornLoose = require("acorn-loose");
 const Assert = require("assert").strict;
 const Path = require("path");
 const Chalk = require("chalk");
@@ -17,8 +18,12 @@ const forbidden = [
   "allowReserved"
 ];
 
-global.test = (code, ast, options) => {
-  process.stdout.write(Chalk.blue(counter++) + " ");
+const test = (code, options, failure) => {
+  counter++;
+  process.stdout.write(Chalk[failure === null ? "blue" : "bgBlue"](counter) + " ");
+  if (counter === 367) {
+    console.log(code);
+  }
   for (let index = 0; index < forbidden.length; index++) {
     if (forbidden[index] in options) {
       process.stdout.write("Skipped because " + forbidden[index] + "\n");
@@ -26,8 +31,9 @@ global.test = (code, ast, options) => {
     }
   }
   const source = "sourceType" in options ? options.sourceType : "script";
+  let ast = null;
   try {
-    ast = Acorn.parse(code, {
+    ast = (failure === null ? Acorn : AcornLoose).parse(code, {
       sourceType: source,
       ecmaVersion: 2021
     });
@@ -45,29 +51,46 @@ global.test = (code, ast, options) => {
     }
     sentry_error = error;
   }
-  if (sentry_error !== null) {
-    process.stdout.write(Chalk.red("SentryError\n"));
-    process.stdout.write("    " + code + "\n");
-    process.stdout.write("    " + sentry_error.message + "\n");
-  } else if (syntax_error_array.length > 0) {
-    process.stdout.write(Chalk.yellow("SyntaxError\n"));
-    process.stdout.write("    " + code + "\n");
-    for (let index = 0; index < syntax_error_array.length; index++) {
-      process.stdout.write("    " + syntax_error_array[index].message + "\n");
+  if (failure === null) {
+    if (sentry_error !== null) {
+      process.stdout.write(Chalk.red("SentryError\n"));
+      process.stdout.write("    " + code + "\n");
+      process.stdout.write("    " + sentry_error.message + "\n");
+    } else if (syntax_error_array.length > 0) {
+      process.stdout.write(Chalk.yellow("SyntaxError\n"));
+      process.stdout.write("    " + code + "\n");
+      for (let index = 0; index < syntax_error_array.length; index++) {
+        process.stdout.write("    " + syntax_error_array[index].message + "\n");
+      }
+    } else {
+      process.stdout.write(Chalk.green("Passed\n"));
     }
   } else {
-    process.stdout.write(Chalk.green("Passed\n"));
+    if (sentry_error !== null) {
+      process.stdout.write(Chalk.red("SentryError\n"));
+      process.stdout.write("    " + code + "\n");
+      process.stdout.write("    " + failure + "\n");
+      process.stdout.write("    " + sentry_error.message + "\n");
+    } else if (syntax_error_array.length > 0) {
+      process.stdout.write(Chalk.green("SyntaxError\n"));
+      process.stdout.write("    " + code + "\n");
+      process.stdout.write("    " + failure + "\n");
+      for (let index = 0; index < syntax_error_array.length; index++) {
+        process.stdout.write("    " + syntax_error_array[index].message + "\n");
+      }
+    } else {
+      process.stdout.write(Chalk.yellow("Passed\n"));
+      process.stdout.write("    " + code + "\n");
+      process.stdout.write("    " + failure + "\n");
+    }
   }
 };
 
-global.testFail = (code, message, options) => {
-  // Assert.throws(() => Acorn.parse(code, options), new SyntaxError(message));
-  // console.log(counter++);
-};
+global.test = (code, ast, options) => test(code, options, null);
 
-global.testAssert = (code, assert, option) => {
+global.testFail = (code, message, options) => test(code, options, message);
 
-};
+global.testAssert = (code, assert, option) => test(code, options, null);
 
 Fs.readdirSync(Path.join(__dirname, "acorn-test")).sort().forEach((filename) => {
   if (/^tests-.+\.js$/.test(filename)) {
