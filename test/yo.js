@@ -29,7 +29,7 @@ global.test = (code, ast, options) => {
   try {
     ast = Acorn.parse(code, {
       sourceType: source,
-      ecmaVersion: 2020
+      ecmaVersion: 2021
     });
   } catch (error) {
     process.stdout.write("Skipped because acorn failure: " + error.message + "\n");
