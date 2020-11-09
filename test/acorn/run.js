@@ -1,5 +1,7 @@
 "use strict";
 
+// nyc --reporter=html --include lib/index.js node test/acorn/run.js ; open coverage/index.html
+
 const Fs = require("fs");
 const Acorn = require("acorn");
 const AcornLoose = require("acorn-loose");
@@ -23,7 +25,7 @@ const signal = (id, code, failure, name, message) => {
   problems.push({id, code, failure, name, message});
 };
 
-const test = (code, options, failure) => {
+const test = (code, options = {}, failure) => {
   counter++;
   process.stdout.write(Chalk[failure === null ? "blue" : "bgBlue"](counter) + " ");
   if (counter === 367) {
@@ -114,14 +116,16 @@ const test = (code, options, failure) => {
   }
 };
 
+global.acorn = {tokTypes: Acorn.tokTypes};
+
 global.test = (code, ast, options) => test(code, options, null);
 
 global.testFail = (code, message, options) => test(code, options, message);
 
-global.testAssert = (code, assert, option) => test(code, options, null);
+global.testAssert = (code, assert, options) => test(code, options, null);
 
 Fs.readdirSync(Path.join(__dirname, "test")).sort().forEach((filename) => {
-  if (/^tests-.+\.js$/.test(filename)) {
+  if (/^tests.*\.js$/.test(filename)) {
     process.stdout.write("\n" + filename + "\n\n");
     global.eval(Fs.readFileSync(Path.join(__dirname, "test", filename), "utf8"));
   }
