@@ -6,7 +6,7 @@ const AcornLoose = require("acorn-loose");
 const Assert = require("assert").strict;
 const Path = require("path");
 const Chalk = require("chalk");
-const EstreeSentry = require("../lib/index.js");
+const EstreeSentry = require("../../lib/index.js");
 
 let counter = 0;
 
@@ -17,6 +17,11 @@ const forbidden = [
   "allowReturnOutsideFunction",
   "allowReserved"
 ];
+
+const problems = [];
+const signal = (id, code, failure, name, message) => {
+  problems.push({id, code, failure, name, message});
+};
 
 const test = (code, options, failure) => {
   counter++;
@@ -51,6 +56,7 @@ const test = (code, options, failure) => {
     }
     sentry_error = error;
   }
+  // Report //
   if (failure === null) {
     if (sentry_error !== null) {
       process.stdout.write(Chalk.red("SentryError\n"));
@@ -84,6 +90,28 @@ const test = (code, options, failure) => {
       process.stdout.write("    " + failure + "\n");
     }
   }
+  // Triage //
+  if (failure === null) {
+    if (sentry_error !== null) {
+      signal(counter, code, null, "SentryError", sentry_error.message);
+    }
+    for (let index = 0; index < syntax_error_array.length; index++) {
+      signal(counter, code, null, "SyntaxError", syntax_error_array[index].message);
+    }
+  } else {
+    if (sentry_error !== null) {
+      if (sentry_error.message !== "Literal.regex.pattern is undefined and must be a string") {
+        signal(counter, code, failure, "SentryError", sentry_error.message);
+      }
+    }
+    if (syntax_error_array > 0) {
+      for (let index = 0; index < syntax_error_array.length; index++) {
+        if (syntax_error_array[index].message !== "Identifier.name is invalid, got: ✖") {
+          signal(counter, code, failure, "SyntaxError", syntax_error_array[index].message);
+        }
+      }
+    }
+  }
 };
 
 global.test = (code, ast, options) => test(code, options, null);
@@ -92,9 +120,16 @@ global.testFail = (code, message, options) => test(code, options, message);
 
 global.testAssert = (code, assert, option) => test(code, options, null);
 
-Fs.readdirSync(Path.join(__dirname, "acorn-test")).sort().forEach((filename) => {
+Fs.readdirSync(Path.join(__dirname, "test")).sort().forEach((filename) => {
   if (/^tests-.+\.js$/.test(filename)) {
     process.stdout.write("\n" + filename + "\n\n");
-    global.eval(Fs.readFileSync(Path.join(__dirname, "acorn-test", filename), "utf8"));
+    global.eval(Fs.readFileSync(Path.join(__dirname, "test", filename), "utf8"));
   }
 });
+
+for (let {id, code, failure, name, message} of problems) {
+  console.log(id);
+  console.log("    " + code.split("\n").join("\n    "));
+  console.log("    " + failure);
+  console.log("    " + name + " >> " + message);
+}
