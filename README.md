@@ -1,17 +1,42 @@
 # estree-sentry
 
-This module investigates whether an ESTree refers to a valid ECMAScript program -- i.e. a ECMAScript program which does not result in [an early syntactic error](https://www.ecma-international.org/ecma-262/#early-error).
-Indeed, an object may adhere to the program node interface defined by the [estree specification](https://github.com/estree/estree) but may not refer to a valid ECMAScript program.
+This module investigates whether a value is a valid ESTree program node.
+This entails two kinds of checks: the ones that verifies that the value adhere to the interface defined by the [ESTree 2020 specification](https://github.com/estree/estree) and the ones that verifies that evaluating the generation of that value (e.g. using a module such as [escodegen](https://www.npmjs.com/package/escodegen)) would not result into an early syntactic error as defined by the [ECMAScript 2020 specification](https://www.ecma-international.org/ecma-262/2020).
 
 ```js
-require("vm").runInThisContext(require("escodegen").generate({
+// Success //
+var errors = require("estree-sentrylib").script({
+  type: "Program",
+  source: "script",
+  body: []
+});
+console.assert(errors.length === 0);
+// Syntax Failure //
+var errors = require("estree-sentry").script({
   type: "Program",
   source: "script",
   body: [{
     type: "BreakStatement",
     label: null
   }]
-})); // SyntaxError: Illegal break statement
+});
+console.assert(errors.length === 1);
+console.assert(errors[0] instanceof require("estree-sentry").SyntaxSentryError);
+console.assert(errors[0].message === "Unbound break label: (empty)");
+// ESTree Failure //
+try {
+  require("estree-sentry").script({
+    type: "Program",
+    source: "script",
+    body: [{
+      type: "Literal",
+      value: 123
+    }]
+  })
+} catch (error) {
+  console.assert(error instanceof require("estree-sentry").EstreeSentryError);
+  console.assert(error.message.startsWith(`Note.type is "Literal" and must be one of`));
+}
 ```
 
 ## Why does this exist?
@@ -36,7 +61,7 @@ The primary motivation for developing this module lies in the fact that popular 
   eval("'use strict'; void 0; var x = 123"); // returns undefined and not 'use strict';
   ```
 
-2. The parse do not consider the closure context of code intended to be fed to a direct eval call. As a result, the parse is not tolerant enough and raises too many syntactic errors:
+2. The parser do not consider the closure context of code intended to be fed to a direct eval call. As a result, the parser is not tolerant enough and raises too many syntactic errors:
 
   ```js
   // new.target //
@@ -100,109 +125,76 @@ This explains why this module aim at detecting *all* early syntactic errors of E
 ## API
 
 This module exports one arrow property for each of the type of ECMAScript programs: scripts, modules, and eval codes.
-Each one of these arrow expect an ESTree program and an option object which provides the information about the execution context required to detect early syntactic error.
-And each one these arrow returns a list of early syntactic errors under the form of a string message and an [estree source location](https://github.com/estree/estree/blob/master/es5.md#node-objects).
-Note that the order of these errors is not fixed by the [ECMASCript spec](https://www.ecma-international.org/ecma-262/#sec-parse-script) however this module will attempt to order them based on their code location in a depth-first manner.
+Each one of these arrow expect a value to check as a valid `estree.Program` and an options object which provides the information about the execution context necessary to detect early syntax errors.
+Each one of these arrows can have four outcomes:
+
+1. The arrow throws an `EstreeSentryError` which indicates that the provided value does not conform to the `estree.Program` interface.
+2. The arrow throws a `OptionSentryError` which indicates that the provided options are invalid.
+3. The arrow throws any other error which indicates an unexpected internal failure.
+4. The arrow returns an array of `SyntaxSentryError` which each indicate an early syntactic failure. Note that the order of these errors is not fixed by the [ECMASCript spec](https://www.ecma-international.org/ecma-262/#sec-parse-script) however this module will attempt to order them based on their code location in a depth-first manner.
 
 ```
-Errors :: [{message:string, loc:estree.SourceLocation}]
+interface Value = *
 
-Variable: {
-  kind: ("let" | "const" | "class" | "var" | "function" | "param"),
+interface Variable = {
+  kind: null | "let" | "const" | "class" | "var" | "function" | "param",
+  duplicable: null | boolean
   name: string
 }
 
-Errors = require("estree-sentry").module(estree.Program, {})
+// Module //
+[SyntaxSentryError] = require("estree-sentry").module(Value, {
+  "scope": [Variable] = [] // The variables present in the global declarative environment frame (without effect)
+}) throws EstreeSentryError, OptionSentryError
 
-Errors = require("estree-sentry").script(estree.Program, {
-  "scope": [[Variable] = []] // The variables present in the global lexical frame
-})
+// Script //
+[SyntaxSentryError] = require("estree-sentry").script(Value, {
+  "scope": [Variable] = [] // The variables present in the global declarative environment frame
+}) throws EstreeSentryError, OptionSentryError
 
-Errors = require("estree-sentry").eval(estree.Program, {
-  "closure-tag": [("program" | "function" | "arrow" | "method" | "constructor" | "derived-constructor") = "program"], // A description of the directly enclosing closure
-  "function-ancestor": [boolean = false], // Has a function expression in its ancestors
-  "strict-mode": [boolean = false], // Is in strict mode
-  "scope": [[Variable] = []] // The variables present in the global lexical frame and in the local scope
-})
+// (Direct) Eval Call //
+[SyntaxSentryError] = require("estree-sentry").eval(Value, {
+  "scope": [Variable] = [] // The variables present in the scope of the direct eval call
+  "closure-context": ("program" | "function" | "arrow" | "method" | "constructor" | "derived-constructor") = "program", // A description of the closure enclosing the direct eval call
+  "function-expression-ancestor": boolean = false, // Indicates whether the direct eval call have a FunctionExpression node in its ancestors
+  "strict-mode": boolean = false, // Indicates whether the direct eval call in strict mode
+}) throws EstreeSentryError, OptionSentryError
+
+// Error //
+interface EstreeSentryError {
+  name: "EstreeSentryError",
+  message: string,
+  loc: estree.SourceLocation
+}
+interface SyntaxSentryError {
+  name: "SyntaxSentryError",
+  message: string,
+  loc: estree.SourceLocation
+}
+interface OptionSentryError {
+  name: "OptionSentryError",
+  message: string,
+}
 ```
-
-<!-- Examples:
-
-```js
-require("estree-sentry").eval(require("acorn-loose").parse("new.target"), {
-  "function-ancestor": false
-}).forEach(({message, loc}) => {
-  throw new SyntaxError(message, loc.start.line);
-}); // Throws
-```
-
-
-
-// A reification of the global lexical frame (different from the global object)
-// cf: https://www.ecma-international.org/ecma-262/#sec-global-environment-records
-// Unfortunately, the ECMAScript specification do not provide any mechanism to reify
-// this structure. Hence, collecting this information requires bookkeeping. -->
 
 In addition, this module annotates several ESTree nodes in the following way:
 
-* `Program`:
+```
+interface Variable {
+  kind: "param" | "var" | "function" | "let" | "const" | "class",
+  duplicable: boolean,
+  name: string
+}
 
-  ```
-  extend interface Program {
-    __sentry_use_strict__: boolean, // Indicates whether the program has a use strict directive
-    __sentry_eval_call__: boolean, // Indicates whether the program contains a direct eval call not encapsulated by a closure
-    __sentry_hoisting__: [ProgramVariable], // The (local) variable hoisting of the program
-    __sentry_hoisting_global__: [ProgramVariable] // The global variable hoisting of the program
-  }
+extend interface Program, Function {
+  __sentry_use_strict__: boolean, // Indicates whether the program has a use strict directive
+  __sentry_eval_call__: boolean, // Indicates whether the program contains a direct eval call which is not encapsulated by a closure
+  __sentry_capture__: [Variable], // The variable declarations captured by the node
+  __sentry_release__: [Variable] // The variable declarations released by the node
+}
 
-  interface ProgramVariable {
-    kind: "var" | "function" | "let" | "const" | "class",
-    name: string
-  }
-  ```
-
-* `FunctionExpression`, `FunctionDeclaration`, and `ArrowFunctionExpression`:
-
-  ```
-  extend interface Function {
-    __simple_param_list__: boolean, // Indicates whether every parameter is a simple identifier
-    __sentry_use_strict__: boolean, // Indicates whether the closure has a use strict directive
-    __sentry_eval_call__: boolean, // Indicates whether the closure contains a direct eval call not encapsulated by another closure
-    __sentry_hoisting__: [ClosureVariable] // The variable hoisting of the closure
-  }
-
-  interface ClosureVariable {
-    kind: "param" | "var" | "function",
-    name: string
-  }
-  ```
-
-* `BlockStatement` and `SwitchStatement`:
-
-  ```
-  extend interface BlockStatement {
-    __sentry_hoisting__: [BlockVariable] // The variable hoisting of the block
-  }
-
-  extends SwitchStatement {
-    ___sentry_hoisting__: [BlockVariable] // The variable hoisting of the switch statement
-  }
-
-  interface BlockVariable {
-    kind: "let" | "const" | "class",
-    name: string
-  }
-  ```
-
-* `CatchClause`:
-
-  ```
-  extends CatchClause {
-    __sentry_hoisting__: [CatchVariable] // The variable hoisting of the catch clause
-  }
-
-  interface CatchVariable {
-    kind: "param",
-    name: string
-  }
-  ```
+extend interface BlockStatement, CatchClause, ForStatement, ForInStatment, ForOfStatement, SwitchStatement {
+  __sentry_capture__: [Variable], // The variable declarations captured by the node
+  __sentry_release__: [Variable] // The variable declarations released by the node
+}
+```
