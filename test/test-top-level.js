@@ -1,3 +1,6 @@
+"use strict";
+
+// nyc --reporter=html --include lib/index.js node test/acorn/run.js ; open coverage/index.html
 
 const EstreeSentry = require("../lib/index.js");
 const Acorn = require("acorn");
@@ -117,29 +120,20 @@ const assert_node = (node, use_strict, eval_call, capture, release) => {
   };
 
   Assert.throws(() => test(`new.target;`, "module", {
-    "function-expression-ancestor": true
+    "function-expression-ancestor": true,
+    "closure-context": "program"
   }), error);
 
   Assert.throws(() => test(`new.target;`, "script", {
     "function-expression-ancestor": true
   }), error);
 
-  [null, "arrow"].forEach((context) => {
-    test(`new.target;`, "eval", {
-      "function-expression-ancestor": true,
-      "closure-context": context
-    });
-    Assert.throws(() => test(`new.target;`, "eval", {
-      "function-expression-ancestor": false,
-      "closure-context": context
-    }), error);
-  });
+  Assert.throws(() => test(`new.target;`, "eval", {
+    "function-expression-ancestor": false,
+  }), error);
 
-  ["method", "function", "constructor", "derived-constructor"].forEach((context) => {
-    test(`new.target;`, "eval", {
-      "function-expression-ancestor": false,
-      "closure-context": context
-    });
+  test(`new.target;`, "eval", {
+    "function-expression-ancestor": true,
   });
 
 }
@@ -163,7 +157,7 @@ const assert_node = (node, use_strict, eval_call, capture, release) => {
     "closure-context": "derived-constructor"
   }), error);
 
-  [null, "method", "constructor", "arrow", "function"].forEach((context) => {
+  ["program", "method", "constructor", "arrow", "function"].forEach((context) => {
     Assert.throws(() => test(`super();`, "eval", {
       "closure-context": context
     }), error);
@@ -194,7 +188,7 @@ const assert_node = (node, use_strict, eval_call, capture, release) => {
     "closure-context": "method"
   }), error);
 
-  [null, "arrow", "function"].forEach((context) => {
+  ["program", "arrow", "function"].forEach((context) => {
     Assert.throws(() => test(`super.foo;`, "eval", {
       "closure-context": context
     }), error);

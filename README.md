@@ -11,6 +11,7 @@ var errors = require("estree-sentrylib").script({
   body: []
 });
 console.assert(errors.length === 0);
+
 // Syntax Failure //
 var errors = require("estree-sentry").script({
   type: "Program",
@@ -23,6 +24,7 @@ var errors = require("estree-sentry").script({
 console.assert(errors.length === 1);
 console.assert(errors[0] instanceof require("estree-sentry").SyntaxSentryError);
 console.assert(errors[0].message === "Unbound break label: (empty)");
+
 // ESTree Failure //
 try {
   require("estree-sentry").script({
@@ -43,7 +45,8 @@ try {
 
 The primary motivation for developing this module lies in the fact that popular ECMAScript parsers such as [acorn](https://github.com/acornjs/acorn) and [esprima](https://github.com/jquery/esprima) do not properly detect early syntactic errors which are dependent on the context where the code is intended to run.
 
-1. The parser considers that the code is in normal mode when it is intended to be fed to a direct eval call which resides in strict mode code.
+1.
+    The parser considers that the code is in normal mode when it is intended to be fed to a direct eval call which resides in strict mode code.
     As a result, the parser is too tolerant and fails to raise some early syntactic errors:
     ```js
     "use strict";
@@ -85,8 +88,9 @@ The primary motivation for developing this module lies in the fact that popular 
     ```
     Unfortunately, popular ECMAScript parsers do not provide options to configure the access to these context-dependent features.
 
-3. The parser do not detect duplicated variable declaration at the top level.
-As a result, the parser is too tolerant and fails to raise some early syntactic errors:
+3.
+    The parser do not detect duplicated variable declaration at the top level.
+    As a result, the parser is too tolerant and fails to raise some early syntactic errors:
     ```js
     ///////////////////////////////
     // Local Lexical Environment //
@@ -122,18 +126,19 @@ This explains why this module aim at detecting *all* early syntactic errors of E
 
 ## API
 
-This module exports one arrow property for each of the type of ECMAScript programs: scripts, modules, and eval codes.
-Each one of these arrow expect a value to check as a valid `estree.Program` and an options object which provides the information about the execution context necessary to detect early syntax errors.
-Each one of these arrows can have four outcomes:
+This module exports one arrow for each type of ECMAScript programs: scripts, modules, and eval codes.
+Each one of these arrow expect a value to check its validdity as a `estree.Program` and an options object which provides the information about the execution context necessary to detect early syntax errors.
+Each one of these arrows have three expected outcomes:
 
 1. The arrow throws an `EstreeSentryError` which indicates that the provided value does not conform to the `estree.Program` interface.
 2. The arrow throws a `OptionSentryError` which indicates that the provided options are invalid.
-3. The arrow throws any other error which indicates an unexpected internal failure.
-4. The arrow returns an array of `SyntaxSentryError` which each indicate an early syntactic failure. Note that the order of these errors is not fixed by the [ECMASCript spec](https://www.ecma-international.org/ecma-262/#sec-parse-script) however this module will attempt to order them based on their code location in a depth-first manner.
+3. The arrow returns an array of `SyntaxSentryError` which each indicate an early syntactic failure. Note that the order of these errors is not fixed by the [ECMASCript spec](https://www.ecma-international.org/ecma-262/#sec-parse-script) however this module will attempt to order them based on their code location in a depth-first manner.
 
 ```
 interface Value = *
 
+// Either kind or duplicable must be non-null
+// And if both kind and duplicable are non-null, they must compatible
 interface Variable = {
   kind: null | "let" | "const" | "class" | "var" | "function" | "param",
   duplicable: null | boolean
