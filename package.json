@@ -1,7 +1,7 @@
 {
   "name": "estree-sentry",
   "description": "Investigate whether a value is a valid ESTree",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": {
     "name": "Laurent Christophe",
     "email": "lachrist@vub.ac.be"

@@ -1,6 +1,6 @@
 "use strict";
 
-// nyc --reporter=html --include lib/index.js node test/acorn/run.js ; open coverage/index.html
+// nyc --reporter=html --include lib/index.js node test/acorn/test.js ; open coverage/index.html
 
 const Fs = require("fs");
 const Acorn = require("acorn");
