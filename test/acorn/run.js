@@ -21,16 +21,13 @@ const forbidden = [
 ];
 
 const problems = [];
-const signal = (id, code, failure, name, message) => {
-  problems.push({id, code, failure, name, message});
+const signal = (id, code, failure, error) => {
+  problems.push({id, code, failure, error});
 };
 
 const test = (code, options = {}, failure) => {
   counter++;
   process.stdout.write(Chalk[failure === null ? "blue" : "bgBlue"](counter) + " ");
-  if (counter === 367) {
-    console.log(code);
-  }
   for (let index = 0; index < forbidden.length; index++) {
     if (forbidden[index] in options) {
       process.stdout.write("Skipped because " + forbidden[index] + "\n");
@@ -48,43 +45,44 @@ const test = (code, options = {}, failure) => {
     process.stdout.write("Skipped because acorn failure: " + error.message + "\n");
     return null;
   }
-  let syntax_error_array = null;
-  let sentry_error = null;
+  let syntax_sentry_error_array = null;
+  let estree_sentry_error = null;
   try {
-    syntax_error_array = EstreeSentry[source](ast);
+    syntax_sentry_error_array = EstreeSentry[source](ast);
   } catch (error) {
-    if (error.name !== "SentryError") {
+    if (error instanceof EstreeSentry.EstreeSentryError) {
+      estree_sentry_error = error;
+    } else {
       throw error;
     }
-    sentry_error = error;
   }
   // Report //
   if (failure === null) {
-    if (sentry_error !== null) {
-      process.stdout.write(Chalk.red("SentryError\n"));
+    if (estree_sentry_error !== null) {
+      process.stdout.write(Chalk.red("EstreeSentryError\n"));
       process.stdout.write("    " + code + "\n");
-      process.stdout.write("    " + sentry_error.message + "\n");
-    } else if (syntax_error_array.length > 0) {
+      process.stdout.write("    " + estree_sentry_error.message + "\n");
+    } else if (syntax_sentry_error_array.length > 0) {
       process.stdout.write(Chalk.yellow("SyntaxError\n"));
       process.stdout.write("    " + code + "\n");
-      for (let index = 0; index < syntax_error_array.length; index++) {
-        process.stdout.write("    " + syntax_error_array[index].message + "\n");
+      for (let index = 0; index < syntax_sentry_error_array.length; index++) {
+        process.stdout.write("    " + syntax_sentry_error_array[index].message + "\n");
       }
     } else {
       process.stdout.write(Chalk.green("Passed\n"));
     }
   } else {
-    if (sentry_error !== null) {
+    if (estree_sentry_error !== null) {
       process.stdout.write(Chalk.red("SentryError\n"));
       process.stdout.write("    " + code + "\n");
       process.stdout.write("    " + failure + "\n");
-      process.stdout.write("    " + sentry_error.message + "\n");
-    } else if (syntax_error_array.length > 0) {
-      process.stdout.write(Chalk.green("SyntaxError\n"));
+      process.stdout.write("    " + estree_sentry_error.message + "\n");
+    } else if (syntax_sentry_error_array.length > 0) {
+      process.stdout.write(Chalk.green("SyntaxSentryError\n"));
       process.stdout.write("    " + code + "\n");
       process.stdout.write("    " + failure + "\n");
-      for (let index = 0; index < syntax_error_array.length; index++) {
-        process.stdout.write("    " + syntax_error_array[index].message + "\n");
+      for (let index = 0; index < syntax_sentry_error_array.length; index++) {
+        process.stdout.write("    " + syntax_sentry_error_array[index].message + "\n");
       }
     } else {
       process.stdout.write(Chalk.yellow("Passed\n"));
@@ -94,22 +92,22 @@ const test = (code, options = {}, failure) => {
   }
   // Triage //
   if (failure === null) {
-    if (sentry_error !== null) {
-      signal(counter, code, null, "SentryError", sentry_error.message);
+    if (estree_sentry_error !== null) {
+      signal(counter, code, null, estree_sentry_error);
     }
-    for (let index = 0; index < syntax_error_array.length; index++) {
-      signal(counter, code, null, "SyntaxError", syntax_error_array[index].message);
+    for (let index = 0; index < syntax_sentry_error_array.length; index++) {
+      signal(counter, code, null, syntax_sentry_error_array[index]);
     }
   } else {
-    if (sentry_error !== null) {
-      if (sentry_error.message !== "Literal.regex.pattern is undefined and must be a string") {
-        signal(counter, code, failure, "SentryError", sentry_error.message);
+    if (estree_sentry_error !== null) {
+      if (estree_sentry_error.message !== "Literal.regex.pattern is undefined and must be a string") {
+        signal(counter, code, failure, estree_sentry_error);
       }
     }
-    if (syntax_error_array > 0) {
-      for (let index = 0; index < syntax_error_array.length; index++) {
-        if (syntax_error_array[index].message !== "Identifier.name is invalid, got: ✖") {
-          signal(counter, code, failure, "SyntaxError", syntax_error_array[index].message);
+    if (syntax_sentry_error_array > 0) {
+      for (let index = 0; index < syntax_sentry_error_array.length; index++) {
+        if (syntax_sentry_error_array[index].message !== "Identifier.name is invalid, got: ✖") {
+          signal(counter, code, failure, syntax_sentry_error_array[index]);
         }
       }
     }
@@ -131,9 +129,13 @@ Fs.readdirSync(Path.join(__dirname, "test")).sort().forEach((filename) => {
   }
 });
 
-for (let {id, code, failure, name, message} of problems) {
+console.log(``);
+
+for (let {id, code, failure, error} of problems) {
   console.log(id);
-  console.log("    " + code.split("\n").join("\n    "));
-  console.log("    " + failure);
-  console.log("    " + name + " >> " + message);
+  console.log(`  ${code.split("\n").join("\n    ")}`);
+  console.log(`  ${failure}`);
+  console.log(`  ${error.name} >> ${error.message}`);
 }
+
+console.log(`\n${problems.length} problematic tests\n`);
