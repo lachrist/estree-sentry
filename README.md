@@ -44,76 +44,77 @@ try {
 The primary motivation for developing this module lies in the fact that popular ECMAScript parsers such as [acorn](https://github.com/acornjs/acorn) and [esprima](https://github.com/jquery/esprima) do not properly detect early syntactic errors which are dependent on the context where the code is intended to run.
 
 1. The parser considers that the code is in normal mode when it is intended to be fed to a direct eval call which resides in strict mode code.
-As a result, the parser is too tolerant and fails to raise some early syntactic errors:
-```js
-"use strict";
-eval("delete foo;"); // SyntaxError: Delete of an unqualified identifier in strict mode.
-require("acorn").parse("delete foo;", {ecmaVersion:2020}); // Ok
-```
-Note that this issue can be alleviated by prepending `'use strict'; void 0;` to the program.
-The purpose of the `void 0;` statement is to reset the completion valued of the eval script to `undefined`.
-```js
-"use strict";
-eval("delete foo;"); // SyntaxError: Delete of an unqualified identifier in strict mode.
-require("acorn").parse("'use strict'; void 0; delete foo;", {ecmaVersion:2020}); // SyntaxError: Deleting local variable in strict mode
-eval("'use strict'; void 0; var x = 123"); // returns undefined and not 'use strict';
-```
+    As a result, the parser is too tolerant and fails to raise some early syntactic errors:
+    ```js
+    "use strict";
+    eval("delete foo;"); // SyntaxError: Delete of an unqualified identifier in strict mode.
+    require("acorn").parse("delete foo;", {ecmaVersion:2020}); // Ok
+    ```
+    Note that this issue can be alleviated by prepending `'use strict'; void 0;` to the program.
+    The purpose of the `void 0;` statement is to reset the completion valued of the eval script to `undefined`.
+    ```js
+    "use strict";
+    eval("delete foo;"); // SyntaxError: Delete of an unqualified identifier in strict mode.
+    require("acorn").parse("'use strict'; void 0; delete foo;", {ecmaVersion:2020}); // SyntaxError: Deleting local variable in strict mode
+    eval("'use strict'; void 0; var x = 123"); // returns undefined and not 'use strict';
+    ```
 
-2. The parser do not consider the closure context of code intended to be fed to a direct eval call.
-As a result, the parser is not tolerant enough and raises too many syntactic errors:
-```js
-// new.target //
-(function () {
-  eval("new.target") // Ok
-  require("acorn").parse("new.target;", {ecmaVersion:2020}); // SyntaxError: 'new.target' can only be used in functions
-} ());
-// super call //
-(new (class extends Object {
-  constructor () {
-    eval("super();"); // Ok
-    require("acorn").parse("super();", {ecmaVersion:2020}) // SyntaxError: 'new.target' can only be used in functions
-  }
-}) ());
-// super property access //
-({
-  foo () {
-    eval("super.bar;") // Ok
-    require("acorn").parse("super.bar;", {ecmaVersion:2020}) // SyntaxError: 'super' keyword outside a method
-  }
-}).foo();
-```
-Unfortunately, popular ECMAScript parsers do not provide options to configure the access to these context-dependent features.
+2.
+    The parser do not consider the closure context of code intended to be fed to a direct eval call.
+    As a result, the parser is not tolerant enough and raises too many syntactic errors:
+    ```js
+    // new.target //
+    (function () {
+      eval("new.target") // Ok
+      require("acorn").parse("new.target;", {ecmaVersion:2020}); // SyntaxError: 'new.target' can only be used in functions
+    } ());
+    // super call //
+    (new (class extends Object {
+      constructor () {
+        eval("super();"); // Ok
+        require("acorn").parse("super();", {ecmaVersion:2020}) // SyntaxError: 'new.target' can only be used in functions
+      }
+    }) ());
+    // super property access //
+    ({
+      foo () {
+        eval("super.bar;") // Ok
+        require("acorn").parse("super.bar;", {ecmaVersion:2020}) // SyntaxError: 'super' keyword outside a method
+      }
+    }).foo();
+    ```
+    Unfortunately, popular ECMAScript parsers do not provide options to configure the access to these context-dependent features.
 
 3. The parser do not detect duplicated variable declaration at the top level.
 As a result, the parser is too tolerant and fails to raise some early syntactic errors:
-```js
-///////////////////////////////
-// Local Lexical Environment //
-///////////////////////////////
-{
-  let x = 123;
-  require("acorn").parse("var x = 456", {ecmaVersion:2020}); // Ok
-  // Direct eval call //
-  eval("var x = 456"); // SyntaxError: Identifier 'x' has already been declared
-  eval("'use strict'; var x = 456"); // Ok
-}
-////////////////////////////////
-// Global Lexical Environment //
-////////////////////////////////
-require("vm").runInThisContext("let x = 123;");
-// Direct eval call //
-eval("var x = 456"); // SyntaxError: Identifier 'x' has already been declared
-eval("'use strict'; var x = 456"); // Ok
-// Indirect eval call //
-global.eval("var x = 456;"); // SyntaxError: Identifier 'x' has already been declared
-global.eval("'use strict'; var x = 456;"); // Ok
-// Script (global lexical scope) //
-require("vm").runInThisContext("var x = 456"); // SyntaxError: Identifier 'x' has already been declared
-require("vm").runInThisContext("'use strict'; var x = 456"); // SyntaxError: Identifier 'x' has already been declared
-// Module (global lexical scope) //
-const module = new (require("vm").SourceTextModule)("var x = 456;");
-module.link(() => {}).then((x) => module.evaluate()); // Ok
-```
+    ```js
+    ///////////////////////////////
+    // Local Lexical Environment //
+    ///////////////////////////////
+    {
+      let x = 123;
+      require("acorn").parse("var x = 456", {ecmaVersion:2020}); // Ok
+      // Direct eval call //
+      eval("var x = 456"); // SyntaxError: Identifier 'x' has already been declared
+      eval("'use strict'; var x = 456"); // Ok
+    }
+    ////////////////////////////////
+    // Global Lexical Environment //
+    ////////////////////////////////
+    require("vm").runInThisContext("let x = 123;");
+    // Direct eval call //
+    eval("var x = 456"); // SyntaxError: Identifier 'x' has already been declared
+    eval("'use strict'; var x = 456"); // Ok
+    // Indirect eval call //
+    global.eval("var x = 456;"); // SyntaxError: Identifier 'x' has already been declared
+    global.eval("'use strict'; var x = 456;"); // Ok
+    // Script (global lexical scope) //
+    require("vm").runInThisContext("var x = 456"); // SyntaxError: Identifier 'x' has already been declared
+    require("vm").runInThisContext("'use strict'; var x = 456"); // SyntaxError: Identifier 'x' has already been declared
+    // Module (global lexical scope) //
+    const module = new (require("vm").SourceTextModule)("var x = 456;");
+    module.link(() => {}).then((x) => module.evaluate()); // Ok
+    ```
 
 Aside from hard-to-maintain forks and plugins, the only solution consists in relying on the tolerant mode often provided by popular ECMAScript parsers (e.g.: [acorn-loose](https://github.com/acornjs/acorn/tree/master/acorn-loose) and [esprima-tolerant](https://esprima.readthedocs.io/en/4.0/syntactic-analysis.html#tolerant-mode)).
 Unfortunately, these tolerant modes cannot be fined-tuned hence the detection of early syntactic error must be entirely outsourced.
