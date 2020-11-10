@@ -1,5 +1,5 @@
 {
-  "name": "aran",
+  "name": "estree-sentry",
   "description": "Investigate whether a value is a valid ESTree",
   "version": "0.0.1",
   "author": {
