@@ -189,15 +189,28 @@ interface Variable {
   name: string
 }
 
-extend interface Program, Function {
-  __sentry_use_strict__: boolean, // Indicates whether the program has a use strict directive
-  __sentry_eval_call__: boolean, // Indicates whether the program contains a direct eval call which is not encapsulated by a closure
-  __sentry_capture__: [Variable], // The variable declarations captured by the node
-  __sentry_release__: [Variable] // The variable declarations released by the node
+extend interface Program, Function, BlockStatement, CatchClause, ForStatement, ForInStatment, ForOfStatement, SwitchStatement {
+  __sentry_captured_hoisting__: [Variable],
+  __sentry_released_hoisting__: [Variable]
 }
 
-extend interface BlockStatement, CatchClause, ForStatement, ForInStatment, ForOfStatement, SwitchStatement {
-  __sentry_capture__: [Variable], // The variable declarations captured by the node
-  __sentry_release__: [Variable] // The variable declarations released by the node
+extend interface Program {
+  __sentry_has_this_read__: boolean,
+  __sentry_has_use_strict_directive__: boolean,
+  __sentry_has_direct_eval_call: boolean
+}
+
+extend interface Function {
+  __sentry_has_use_strict_directive__: boolean,
+  __sentry_has_head_closure__: boolean
+  __sentry_has_head_direct_eval_call__: boolean,
+  __sentry_has_body_direct_eval_call__: boolean,
+}
+
+extend interface FunctionExpression, FunctionDeclaration {
+  __sentry_has_this_read__: boolean,
+  __sentry_has_new_target_read: boolean
+  __sentry_has_arguments_read__: boolean,
+  __sentry_has_arguments_write__: boolean,
 }
 ```

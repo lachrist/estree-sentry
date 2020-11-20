@@ -44,10 +44,10 @@ const assert_key = (node, key, value) => {
 };
 
 const assert_node = (node, use_strict, eval_call, capture, release) => {
-  assert_key(node, "__sentry_use_strict__", use_strict);
-  assert_key(node, "__sentry_eval_call__", eval_call);
-  assert_key(node, "__sentry_capture__", capture);
-  assert_key(node, "__sentry_release__", release);
+  assert_key(node, "__sentry_has_use_strict_directive__", use_strict);
+  assert_key(node, "__sentry_has_direct_eval_call__", eval_call);
+  assert_key(node, "__sentry_captured_hoisting__", capture);
+  assert_key(node, "__sentry_released_hoisting__", release);
 };
 
 ///////////
